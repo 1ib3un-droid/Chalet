@@ -551,12 +551,17 @@ https://maps.google.com/?q=24.471445,46.731556
 
 شكرًا لثقتكم بنا، ونتمنى لكم إقامة ممتعة 🤍`;
 }
-function availText(S,y,m,today){
-  const ix=_g('occIndex')(S),nd=_g('dim')(y,m);today=today||_g('todayStr')();
-  const lines=[`الأيام المتاحة في ${_g('MONTHS')[m-1]} ${y}:`];
-  for(const s of [1,2]){const days=[];for(let d=1;d<=nd;d++){const ds=_g('ymd')(y,m,d);if(ds<today)continue;if(!ix[ds+'|'+s])days.push(d);}
-    lines.push('',`قسم ${s}:`,days.length?days.join('، '):'لا يوجد');}
-  return lines.join('\n');}
+function availText(S,today){
+  /* 7 days starting today, one line per day; then later bookings under "الحجوزات المتقدمه" */
+  const ix=_g('occIndex')(S);today=today||_g('todayStr')();
+  const DN=['الاحد','الاثنين','الثلثاء','الاربعاء','الخميس','الجمعة','السبت'],K={1:'1\uFE0F\u20E3',2:'2\uFE0F\u20E3'};
+  const line=ds=>{const q=_g('partsOf')(ds),bk=[1,2].filter(s=>ix[ds+'|'+s]);
+    return `${DN[_g('dowOf')(ds)]}: ${q.m}/${q.d} ${bk.length?'محجوز '+bk.map(s=>K[s]).join(''):'متاح'}`;};
+  const L=[],end=_g('addD')(today,6);
+  for(let k=0;k<7;k++)L.push(line(_g('addD')(today,k)));
+  const later=[...new Set(Object.keys(ix).map(k=>k.split('|')[0]).filter(d=>d>end))].sort();
+  if(later.length){L.push('الحجوزات المتقدمه: ✅✅');later.forEach(d=>L.push(line(d)));}
+  return L.join('\n');}
 function statementText(S,mkId,y,m){
   const mc=_g('monthCalc')(S,y,m),a=_g('acct')(S,mkId),name=_g('mkName')(S,mkId);
   const bs=S.bookings.filter(b=>!b.del&&b.mk===mkId&&b.start.startsWith(_g('ymk')(y,m))).sort((p,q)=>p.start<q.start?-1:1);
@@ -1255,7 +1260,7 @@ document.addEventListener('click',async ev=>{
     case 'restoreB': {const b=bget(ui.form.id);if(!b)break;b.status='active';b.reason='';b.cxComm=false;touch(b);save();const clash=conflictIds(S).has(b.id);closeModal();ui.bf='active';render();toast(clash?'أعيد تفعيل الحجز — تنبيه: يوجد تعارض':'أعيد تفعيل الحجز');break;}
     case 'delB': {const b=bget(ui.form.id);if(b){b.del=true;touch(b);save();}closeModal();render();toast('تم حذف الحجز');break;}
     case 'remSet': {const b=bget(id);if(b){b.rem=v;touch(b);save();render(true);toast(v==='received'?'سُجّل أنك استلمت الباقي':'سُجّل أن الباقي عند الحارس');}break;}
-    case 'availCopy': copyText(availText(S,ui.y,ui.m),'تم نسخ الأيام المتاحة');break;
+    case 'availCopy': copyText(availText(S),'تم نسخ الأيام المتاحة');break;
     case 'stmt': copyText(statementText(S,id,ui.y,ui.m),'تم نسخ الكشف');break;
     case 'settle': openSettle(id);break;
     case 'stFull': {const a=acct(S,ui.form.settle);document.getElementById('st_rcv').value=Math.max(0,a.held)||'';document.getElementById('st_pay').value=Math.max(0,a.comm)||'';stPreview();break;}
